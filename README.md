@@ -29,7 +29,17 @@ graph LR
 
 ### Option 1: Run with Docker (Recommended)
 
-You can build and run the container locally:
+You can pull and run the container directly from GitHub Container Registry:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/jospnunes/pdfsynth:latest
+
+# Run the container
+docker run -p 8080:8080 --init ghcr.io/jospnunes/pdfsynth:latest
+```
+
+Or build locally:
 
 ```bash
 # Build the image
@@ -46,7 +56,7 @@ Easily integrate PDFSynth into your existing stack using `docker-compose.yml`:
 ```yaml
 services:
   pdf-engine:
-    image: pdfsynth:latest # Or your registry image URL
+    image: ghcr.io/jospnunes/pdfsynth:latest
     ports:
       - "8080:8080"
     restart: always
