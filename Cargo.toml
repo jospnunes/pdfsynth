@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Synth Solutions"]
 description = "High-performance PDF/A-1a rendering microservice built with Rust"
 license = "MIT"
-repository = "https://github.com/your-username/pdfsynth"
+repository = "https://github.com/jospnunes/pdfsynth"
 
 [dependencies]
 axum = "0.7"
