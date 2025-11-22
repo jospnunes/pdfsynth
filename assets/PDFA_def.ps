@@ -1,0 +1,63 @@
+%!
+% This is a sample prefix file for creating a PDF/A-1b document.
+% Modification of the original pdf_def.ps file.
+
+% Define entries in the Info dictionary
+/ICCProfile (assets/srgb.icc) def
+
+% Define the OutputIntent dictionary
+[ /GTS_PDFA1 true
+  /Title (PDF/A-1b)
+  /DocType /Text
+  /Version (1.0)
+  /Trapped /False
+  /OutputConditionIdentifier (sRGB)
+  /RegistryName (http://www.color.org)
+  /Info (sRGB IEC61966-2.1)
+  /DestOutputProfile (assets/srgb.icc)
+  /CustomRendered /False
+  /OutputCondition (sRGB IEC61966-2.1)
+  /MarkInfo << /Marked true >>
+  /ViewerPreferences << /DisplayDocTitle true >>
+  /MetadataStream
+  % This is a dummy metadata stream. In a real application, this should be XMP.
+  (
+    <?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?>
+    <x:xmpmeta xmlns:x='adobe:ns:meta/'>
+      <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>
+        <rdf:Description rdf:about='' xmlns:pdfaExtension='http://www.aiim.org/pdfa/ns/extension/' xmlns:pdfaSchema='http://www.aiim.org/pdfa/ns/schema#' xmlns:pdfaProperty='http://www.aiim.org/pdfa/ns/property#'>
+          <pdfaExtension:schemas>
+            <rdf:Bag>
+              <rdf:li rdf:parseType='Resource'>
+                <pdfaSchema:schema>PDF/A Identification Schema</pdfaSchema:schema>
+                <pdfaSchema:namespaceURI>http://www.aiim.org/pdfa/ns/id/</pdfaSchema:namespaceURI>
+                <pdfaSchema:prefix>pdfaid</pdfaSchema:prefix>
+                <pdfaSchema:property>
+                  <rdf:Seq>
+                    <rdf:li rdf:parseType='Resource'>
+                      <pdfaProperty:name>part</pdfaProperty:name>
+                      <pdfaProperty:valueType>Integer</pdfaProperty:valueType>
+                      <pdfaProperty:category>internal</pdfaProperty:category>
+                      <pdfaProperty:description>Part of PDF/A standard</pdfaProperty:description>
+                    </rdf:li>
+                    <rdf:li rdf:parseType='Resource'>
+                      <pdfaProperty:name>conformance</pdfaProperty:name>
+                      <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                      <pdfaProperty:category>internal</pdfaProperty:category>
+                      <pdfaProperty:description>Conformance level of PDF/A standard</pdfaProperty:description>
+                    </rdf:li>
+                  </rdf:Seq>
+                </pdfaSchema:property>
+              </rdf:li>
+            </rdf:Bag>
+          </pdfaExtension:schemas>
+        </rdf:Description>
+        <rdf:Description rdf:about='' xmlns:pdfaid='http://www.aiim.org/pdfa/ns/id/'>
+          <pdfaid:part>1</pdfaid:part>
+          <pdfaid:conformance>B</pdfaid:conformance>
+        </rdf:Description>
+      </rdf:RDF>
+    </x:xmpmeta>
+    <?xpacket end='w'?>
+  )
+  /DOCINFO pdfmark
