@@ -1,0 +1,775 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+assets/
+  .keep
+  PDFA_def.ps
+  srgb.icc
+fonts/
+  .keep
+scripts/
+  test_docker.sh
+src/
+  api/
+    error.rs
+    health.rs
+    mod.rs
+    render.rs
+    state.rs
+  core/
+    mod.rs
+  infra/
+    browser.rs
+    ghostscript.rs
+    mod.rs
+    templates.rs
+  main.rs
+.gitignore
+Cargo.toml
+Dockerfile
+LICENSE
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="assets/PDFA_def.ps">
+%!
+% This is a sample prefix file for creating a PDF/A-1b document.
+% Modification of the original pdf_def.ps file.
+
+% Define entries in the Info dictionary
+/ICCProfile (assets/srgb.icc) def
+
+% Define the OutputIntent dictionary
+[ /GTS_PDFA1 true
+  /Title (PDF/A-1b)
+  /DocType /Text
+  /Version (1.0)
+  /Trapped /False
+  /OutputConditionIdentifier (sRGB)
+  /RegistryName (http://www.color.org)
+  /Info (sRGB IEC61966-2.1)
+  /DestOutputProfile (assets/srgb.icc)
+  /CustomRendered /False
+  /OutputCondition (sRGB IEC61966-2.1)
+  /MarkInfo << /Marked true >>
+  /ViewerPreferences << /DisplayDocTitle true >>
+  /MetadataStream
+  % This is a dummy metadata stream. In a real application, this should be XMP.
+  (
+    <?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?>
+    <x:xmpmeta xmlns:x='adobe:ns:meta/'>
+      <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>
+        <rdf:Description rdf:about='' xmlns:pdfaExtension='http://www.aiim.org/pdfa/ns/extension/' xmlns:pdfaSchema='http://www.aiim.org/pdfa/ns/schema#' xmlns:pdfaProperty='http://www.aiim.org/pdfa/ns/property#'>
+          <pdfaExtension:schemas>
+            <rdf:Bag>
+              <rdf:li rdf:parseType='Resource'>
+                <pdfaSchema:schema>PDF/A Identification Schema</pdfaSchema:schema>
+                <pdfaSchema:namespaceURI>http://www.aiim.org/pdfa/ns/id/</pdfaSchema:namespaceURI>
+                <pdfaSchema:prefix>pdfaid</pdfaSchema:prefix>
+                <pdfaSchema:property>
+                  <rdf:Seq>
+                    <rdf:li rdf:parseType='Resource'>
+                      <pdfaProperty:name>part</pdfaProperty:name>
+                      <pdfaProperty:valueType>Integer</pdfaProperty:valueType>
+                      <pdfaProperty:category>internal</pdfaProperty:category>
+                      <pdfaProperty:description>Part of PDF/A standard</pdfaProperty:description>
+                    </rdf:li>
+                    <rdf:li rdf:parseType='Resource'>
+                      <pdfaProperty:name>conformance</pdfaProperty:name>
+                      <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                      <pdfaProperty:category>internal</pdfaProperty:category>
+                      <pdfaProperty:description>Conformance level of PDF/A standard</pdfaProperty:description>
+                    </rdf:li>
+                  </rdf:Seq>
+                </pdfaSchema:property>
+              </rdf:li>
+            </rdf:Bag>
+          </pdfaExtension:schemas>
+        </rdf:Description>
+        <rdf:Description rdf:about='' xmlns:pdfaid='http://www.aiim.org/pdfa/ns/id/'>
+          <pdfaid:part>1</pdfaid:part>
+          <pdfaid:conformance>B</pdfaid:conformance>
+        </rdf:Description>
+      </rdf:RDF>
+    </x:xmpmeta>
+    <?xpacket end='w'?>
+  )
+  /DOCINFO pdfmark
+</file>
+
+<file path="scripts/test_docker.sh">
+#!/bin/bash
+set -e
+
+BASE_URL="http://localhost:8080"
+
+echo "Waiting for service to be ready..."
+for i in {1..30}; do
+    if curl -s "$BASE_URL/health" | grep -q "ok"; then
+        echo "Service is up!"
+        break
+    fi
+    sleep 1
+done
+
+echo "1. Testing /health..."
+curl -f "$BASE_URL/health"
+echo ""
+
+echo "2. Testing /render/debug (HTML)..."
+curl -X POST "$BASE_URL/render/debug" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_html": "<!DOCTYPE html><html><body><h1>Hello {{ name }}</h1></body></html>",
+    "data": { "name": "Docker World" }
+  }'
+echo ""
+
+echo "3. Testing /render (PDF)..."
+curl -X POST "$BASE_URL/render" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_html": "<!DOCTYPE html><html><body><h1>Hello {{ name }}</h1></body></html>",
+    "data": { "name": "PDF World" },
+    "options": { "pdf_a": false, "paper_format": "A4" }
+  }' --output output_std.pdf
+echo "Generated output_std.pdf"
+
+echo "4. Testing /render (PDF/A)..."
+curl -X POST "$BASE_URL/render" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_html": "<!DOCTYPE html><html><body><h1>Hello {{ name }}</h1></body></html>",
+    "data": { "name": "PDF/A World" },
+    "options": { "pdf_a": true, "paper_format": "A4" }
+  }' --output output_pdfa.pdf
+echo "Generated output_pdfa.pdf"
+
+echo "Tests completed."
+</file>
+
+<file path="src/api/error.rs">
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
+use serde_json::json;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum AppError {
+    #[error("Template error: {0}")]
+    TemplateError(#[from] tera::Error),
+    #[error("Browser error: {0}")]
+    BrowserError(String),
+    #[error("Ghostscript error: {0}")]
+    GhostscriptError(String),
+    #[error("Internal error: {0}")]
+    Anyhow(#[from] anyhow::Error),
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            AppError::TemplateError(e) => (StatusCode::BAD_REQUEST, e.to_string()),
+            AppError::BrowserError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
+            AppError::GhostscriptError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
+            AppError::Anyhow(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+        };
+
+        let body = Json(json!({
+            "error": error_message,
+        }));
+
+        (status, body).into_response()
+    }
+}
+</file>
+
+<file path="src/api/health.rs">
+use axum::{http::StatusCode, response::IntoResponse, Json};
+use serde_json::json;
+
+pub async fn health_check() -> impl IntoResponse {
+    (StatusCode::OK, Json(json!({ "status": "ok" })))
+}
+</file>
+
+<file path="src/api/mod.rs">
+pub mod health;
+pub mod render;
+pub mod state;
+pub mod error;
+</file>
+
+<file path="src/api/render.rs">
+use axum::{Json, response::IntoResponse, http::{StatusCode, header}, extract::State};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use crate::api::state::AppState;
+use crate::api::error::AppError;
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct RenderOptions {
+    pub pdf_a: bool,
+    pub paper_format: String,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct RenderRequest {
+    pub template_html: String,
+    pub data: Value,
+    pub options: Option<RenderOptions>,
+}
+
+pub async fn render_html(
+    State(state): State<AppState>,
+    Json(payload): Json<RenderRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let context = tera::Context::from_value(payload.data).unwrap_or_default();
+    let html = state.template_engine.render(&payload.template_html, &context)?;
+    Ok((StatusCode::OK, html))
+}
+
+pub async fn render_pdf(
+    State(state): State<AppState>,
+    Json(payload): Json<RenderRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let context = tera::Context::from_value(payload.data).unwrap_or_default();
+    let html = state.template_engine.render(&payload.template_html, &context)?;
+
+    let pdf_bytes = state.browser.print_to_pdf(&html)
+        .map_err(|e| AppError::BrowserError(e.to_string()))?;
+
+    let final_pdf = if let Some(opts) = payload.options {
+        if opts.pdf_a {
+            crate::infra::ghostscript::Ghostscript::convert_to_pdfa(&pdf_bytes)
+                .map_err(|e| AppError::GhostscriptError(e.to_string()))?
+        } else {
+            pdf_bytes
+        }
+    } else {
+        pdf_bytes
+    };
+
+    Ok((
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "application/pdf")],
+        final_pdf
+    ))
+}
+</file>
+
+<file path="src/api/state.rs">
+use axum::extract::FromRef;
+use crate::infra::{browser::BrowserManager, templates::TemplateEngine};
+
+#[derive(Clone)]
+pub struct AppState {
+    pub browser: BrowserManager,
+    pub template_engine: TemplateEngine,
+}
+
+impl FromRef<AppState> for BrowserManager {
+    fn from_ref(state: &AppState) -> Self {
+        state.browser.clone()
+    }
+}
+
+impl FromRef<AppState> for TemplateEngine {
+    fn from_ref(state: &AppState) -> Self {
+        state.template_engine.clone()
+    }
+}
+</file>
+
+<file path="src/infra/browser.rs">
+use headless_chrome::{Browser, LaunchOptions};
+use anyhow::Result;
+use std::sync::Arc;
+
+#[derive(Clone)]
+pub struct BrowserManager {
+    browser: Arc<Browser>,
+}
+
+impl BrowserManager {
+    pub fn new() -> Result<Self> {
+        let options = LaunchOptions::default_builder()
+            .args(vec![
+                std::ffi::OsStr::new("--no-sandbox"),
+                std::ffi::OsStr::new("--disable-gpu"),
+                std::ffi::OsStr::new("--disable-dev-shm-usage"),
+            ])
+            .build()
+            .map_err(|e| anyhow::anyhow!("Failed to build launch options: {}", e))?;
+
+        let browser = Browser::new(options)
+            .map_err(|e| anyhow::anyhow!("Failed to launch browser: {}", e))?;
+
+        Ok(Self {
+            browser: Arc::new(browser),
+        })
+    }
+
+    pub fn print_to_pdf(&self, html: &str) -> Result<Vec<u8>> {
+        let tab = self.browser.new_tab()
+            .map_err(|e| anyhow::anyhow!("Failed to create tab: {}", e))?;
+
+        let html_data_url = format!("data:text/html;charset=utf-8,{}", urlencoding::encode(html));
+        
+        tab.navigate_to(&html_data_url)
+            .map_err(|e| anyhow::anyhow!("Failed to navigate: {}", e))?
+            .wait_until_navigated()
+            .map_err(|e| anyhow::anyhow!("Failed to wait for navigation: {}", e))?;
+
+        let pdf_data = tab.print_to_pdf(None)
+            .map_err(|e| anyhow::anyhow!("Failed to print to PDF: {}", e))?;
+
+        // Explicitly close the tab to prevent memory leaks (zombie tabs)
+        // We ignore the error here because we already have the PDF data, 
+        // and failing to close the tab shouldn't fail the request.
+        let _ = tab.close(true);
+
+        Ok(pdf_data)
+    }
+}
+</file>
+
+<file path="src/infra/ghostscript.rs">
+use std::process::Command;
+use std::io::Write;
+use anyhow::Result;
+use tempfile::NamedTempFile;
+
+pub struct Ghostscript;
+
+impl Ghostscript {
+    pub fn convert_to_pdfa(pdf_data: &[u8]) -> Result<Vec<u8>> {
+        let mut input_file = NamedTempFile::new()?;
+        input_file.write_all(pdf_data)?;
+        
+        let output_file = NamedTempFile::new()?;
+        let output_path = output_file.path().to_str().unwrap().to_string();
+
+        let status = Command::new("gs")
+            .arg("-dPDFA=1")
+            .arg("-dBATCH")
+            .arg("-dNOPAUSE")
+            .arg("-dNOOUTERSAVE")
+            .arg("-sColorConversionStrategy=RGB")
+            .arg("-sProcessColorModel=DeviceRGB")
+            .arg("-sDEVICE=pdfwrite")
+            .arg("-dPDFACompatibilityPolicy=1")
+            .arg(format!("-sOutputFile={}", output_path))
+            .arg("assets/PDFA_def.ps")
+            .arg(input_file.path())
+            .status()
+            .map_err(|e| anyhow::anyhow!("Failed to execute ghostscript: {}", e))?;
+
+        if !status.success() {
+            return Err(anyhow::anyhow!("Ghostscript failed with status: {}", status));
+        }
+
+        let output_data = std::fs::read(output_path)?;
+        Ok(output_data)
+    }
+}
+</file>
+
+<file path="src/infra/mod.rs">
+pub mod templates;
+pub mod browser;
+pub mod ghostscript;
+</file>
+
+<file path="src/infra/templates.rs">
+use tera::Tera;
+
+
+
+#[derive(Clone)]
+pub struct TemplateEngine;
+
+impl TemplateEngine {
+    pub fn new() -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
+    pub fn render(&self, template_str: &str, context: &tera::Context) -> std::result::Result<String, tera::Error> {
+        // Use one_off for stateless rendering of dynamic templates
+        // autoescape is set to true by default in one_off if not specified, 
+        // but here we pass true explicitly to be safe.
+        let result = Tera::one_off(template_str, context, true)?;
+        Ok(result)
+    }
+}
+</file>
+
+<file path="src/main.rs">
+use axum::{routing::get, Router};
+use tower_http::trace::TraceLayer;
+
+mod api;
+mod core;
+mod infra;
+
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+
+    let browser = infra::browser::BrowserManager::new().expect("Failed to initialize browser");
+    let template_engine = infra::templates::TemplateEngine::new().expect("Failed to initialize template engine");
+    let state = api::state::AppState { browser, template_engine };
+
+    let app = Router::new()
+        .route("/health", get(api::health::health_check))
+        .route("/render/debug", axum::routing::post(api::render::render_html))
+        .route("/render", axum::routing::post(api::render::render_pdf))
+        .with_state(state)
+        .layer(TraceLayer::new_for_http());
+
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    tracing::info!("listening on {}", addr);
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+}
+</file>
+
+<file path=".gitignore">
+debug/
+target/
+
+
+
+
+**/*.rs.bk
+
+
+*.pdb
+
+
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+.env
+</file>
+
+<file path="Cargo.toml">
+[package]
+name = "pdfsynth"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tera = "1.19"
+headless_chrome = { version = "1.0", features = ["fetch"] }
+thiserror = "1.0"
+tower-http = { version = "0.5", features = ["trace", "cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1.0"
+urlencoding = "2.1.3"
+tempfile = "3.23.0"
+</file>
+
+<file path="Dockerfile">
+FROM rustlang/rust:nightly-bookworm as builder
+
+WORKDIR /app
+COPY . .
+
+
+RUN cargo build --release
+
+
+FROM debian:bookworm-slim
+
+
+RUN apt-get update && apt-get install -y \
+    chromium \
+    ghostscript \
+    dumb-init \
+    fonts-liberation \
+    fontconfig \
+    icc-profiles-free \
+    && rm -rf /var/lib/apt/lists/*
+
+
+RUN useradd -m -u 1000 -U appuser
+
+WORKDIR /app
+
+
+COPY --from=builder /app/target/release/pdfsynth /app/pdfsynth
+
+
+COPY --from=builder /app/assets /app/assets
+COPY --from=builder /app/fonts /app/fonts
+
+
+RUN cp /usr/share/color/icc/sRGB.icc /app/assets/srgb.icc
+
+RUN fc-cache -f -v
+
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
+
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+
+CMD ["/app/pdfsynth"]
+</file>
+
+<file path="LICENSE">
+MIT License
+
+Copyright (c) 2025 Synth Solutions
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</file>
+
+<file path="README.md">
+⚡ PDFSynth
+
+PDFSynth is a high-performance, agnostic microservice designed to render PDF/A-1a compliant documents from HTML templates and JSON data.
+
+Built by Synth Solutions, it leverages the safety of Rust, the accuracy of Headless Chrome, and the robustness of Ghostscript to ensure your documents are perfectly rendered and archived forever.
+
+🏗 Architecture
+
+PDFSynth follows a clean "Input-Process-Output" architecture:
+
+graph LR
+    A[Client API] -->|JSON Payload| B(PDFSynth API)
+    B -->|Tera| C{Template Engine}
+    C -->|HTML| D[Headless Chrome]
+    D -->|Raw PDF| E[Ghostscript]
+    E -->|PDF/A-1a| F[Final Output]
+
+
+🚀 Features
+
+Platform Agnostic: Runs anywhere Docker runs (Kubernetes, AWS ECS, Azure, Google Cloud Run, DigitalOcean).
+
+Stateless & Scalable: No persistent state; scales horizontally instantly.
+
+PDF/A Compliance: Native support for ISO 19005-1 (PDF/A-1a) for long-term archiving.
+
+Dynamic Templating: Uses Tera (Jinja2-like syntax) for powerful logic.
+
+Secure: Runs as a non-root user with hardened browser flags.
+
+🛠️ Usage
+
+Option 1: Run with Docker (Recommended)
+
+You can build and run the container locally:
+
+# Build the image
+docker build -t pdfsynth .
+
+# Run the container
+docker run -p 8080:8080 --init pdfsynth
+
+
+Option 2: Docker Compose
+
+Easily integrate PDFSynth into your existing stack using docker-compose.yml:
+
+services:
+  pdf-engine:
+    image: pdfsynth:latest # Or your registry image URL
+    ports:
+      - "8080:8080"
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+
+🔌 API Reference
+
+POST /render
+
+Generates a PDF based on the provided template and data.
+
+Request:
+
+POST /render
+Content-Type: application/json
+
+{
+  "template_html": "<html><body><h1>Certificate for {{ name }}</h1></body></html>",
+  "data": {
+    "name": "João Silva"
+  },
+  "options": {
+    "pdf_a": true,       // Enables PDF/A conversion (slower but compliant)
+    "paper_format": "A4" // A4, Letter, Legal
+  }
+}
+
+
+Response:
+
+200 OK: Binary PDF file.
+
+400 Bad Request: Template syntax error.
+
+500 Internal Server Error: Rendering engine failure.
+
+GET /health
+
+Health check endpoint for load balancers and orchestrators (K8s probes).
+
+{"status": "ok"}
+
+
+⚙️ Configuration
+
+PDFSynth is configured via Environment Variables, following the 12-Factor App methodology.
+
+Variable
+
+Default
+
+Description
+
+PORT
+
+8080
+
+The HTTP port the server listens on.
+
+RUST_LOG
+
+info
+
+Log level (debug, info, warn, error).
+
+📦 Deployment Strategies
+
+Since PDFSynth is packaged as a standard Docker container, it can be deployed to any provider:
+
+Kubernetes (Helm/Kustomize): Define a Deployment and Service targeting port 8080.
+
+AWS ECS / Fargate: Push the image to ECR and run as a task definition.
+
+Google Cloud Run: Push to GCR/Artifact Registry and deploy as a managed service.
+
+DigitalOcean App Platform: Deploy directly from the container registry.
+
+Hardware Recommendation:
+
+Memory: Minimum 1GiB RAM (Headless Chrome is memory intensive).
+
+CPU: 1 vCPU is sufficient for low to medium traffic.
+
+⚖️ License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+Copyright © 2025 Synth Solutions.
+</file>
+
+</files>
