@@ -2,7 +2,7 @@
 
 PDFSynth is a high-performance, agnostic microservice designed to render PDF/A-1a compliant documents from HTML templates and JSON data.
 
-Built by Synth Solutions, it leverages the safety of Rust, the accuracy of Headless Chrome, and the robustness of Ghostscript to ensure your documents are perfectly rendered and archived forever.
+Built by [Synth Solutions](https://www.synthsolutions.com.br/), it leverages the safety of Rust, the accuracy of Headless Chrome, and the robustness of Ghostscript to ensure your documents are perfectly rendered and archived forever.
 
 ## 🏗 Architecture
 
@@ -131,4 +131,4 @@ Since PDFSynth is packaged as a standard Docker container, it can be deployed to
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-Copyright © 2025 Synth Solutions.
+Copyright © 2025 [Synth Solutions](https://www.synthsolutions.com.br/).
