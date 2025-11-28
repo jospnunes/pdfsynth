@@ -32,7 +32,6 @@ impl BrowserManager {
     }
 
     pub fn print_to_pdf(&self, html: &str) -> Result<Vec<u8>> {
-        // Try to get a tab with current browser
         let tab = {
             let browser_guard = self.browser.read().map_err(|_| anyhow::anyhow!("Browser lock poisoned"))?;
             browser_guard.new_tab()
@@ -42,15 +41,12 @@ impl BrowserManager {
             Ok(t) => t,
             Err(e) => {
                 tracing::warn!("Failed to create tab, attempting to restart browser: {}", e);
-                // If failed, try to restart browser
                 let mut browser_guard = self.browser.write().map_err(|_| anyhow::anyhow!("Browser lock poisoned"))?;
                 
-                // Try to create new browser
                 match Self::create_browser() {
                     Ok(new_browser) => {
                         *browser_guard = new_browser;
                         tracing::info!("Browser restarted successfully");
-                        // Try to create tab again
                         browser_guard.new_tab()
                             .map_err(|e| anyhow::anyhow!("Failed to create tab after restart: {}", e))?
                     },
@@ -71,9 +67,6 @@ impl BrowserManager {
         let pdf_data = tab.print_to_pdf(None)
             .map_err(|e| anyhow::anyhow!("Failed to print to PDF: {}", e))?;
 
-        // Explicitly close the tab to prevent memory leaks (zombie tabs)
-        // We ignore the error here because we already have the PDF data, 
-        // and failing to close the tab shouldn't fail the request.
         let _ = tab.close(true);
 
         Ok(pdf_data)
