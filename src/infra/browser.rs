@@ -1,6 +1,7 @@
 use headless_chrome::{Browser, LaunchOptions};
 use anyhow::Result;
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 
 #[derive(Clone)]
 pub struct BrowserManager {
@@ -9,13 +10,26 @@ pub struct BrowserManager {
 
 impl BrowserManager {
     pub fn new() -> Result<Self> {
+        tracing::info!(event = "browser_manager_init", "Initializing browser manager");
+        let start = Instant::now();
+        
         let browser = Self::create_browser()?;
+        
+        let duration = start.elapsed();
+        tracing::info!(
+            event = "browser_manager_ready",
+            duration_ms = duration.as_millis() as u64,
+            "Browser manager initialized and ready"
+        );
+        
         Ok(Self {
             browser: Arc::new(RwLock::new(browser)),
         })
     }
 
     fn create_browser() -> Result<Browser> {
+        tracing::debug!(event = "browser_launching", "Launching headless Chrome browser");
+        
         let options = LaunchOptions::default_builder()
             .args(vec![
                 std::ffi::OsStr::new("--no-sandbox"),

@@ -1,5 +1,6 @@
 use axum::{routing::get, Router};
 use tower_http::trace::TraceLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 mod api;
 mod core;
@@ -7,10 +8,47 @@ mod infra;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    // Configurar tracing com filtro por nível via RUST_LOG
+    tracing_subscriber::registry()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            // Default: info para pdfsynth, warn para outras crates
+            "pdfsynth=info,tower_http=debug,warn".into()
+        }))
+        .with(tracing_subscriber::fmt::layer()
+            .with_target(true)
+            .with_thread_ids(true)
+            .with_file(true)
+            .with_line_number(true))
+        .init();
 
-    let browser = infra::browser::BrowserManager::new().expect("Failed to initialize browser");
-    let template_engine = infra::templates::TemplateEngine::new().expect("Failed to initialize template engine");
+    tracing::info!(
+        event = "application_starting",
+        version = env!("CARGO_PKG_VERSION"),
+        "PDFSynth starting up"
+    );
+
+    let browser = match infra::browser::BrowserManager::new() {
+        Ok(b) => {
+            tracing::info!(event = "browser_initialized", "Browser manager initialized successfully");
+            b
+        }
+        Err(e) => {
+            tracing::error!(event = "browser_init_failed", error = %e, "Failed to initialize browser");
+            panic!("Failed to initialize browser: {}", e);
+        }
+    };
+
+    let template_engine = match infra::templates::TemplateEngine::new() {
+        Ok(t) => {
+            tracing::info!(event = "template_engine_initialized", "Template engine initialized successfully");
+            t
+        }
+        Err(e) => {
+            tracing::error!(event = "template_engine_init_failed", error = %e, "Failed to initialize template engine");
+            panic!("Failed to initialize template engine: {}", e);
+        }
+    };
+
     let state = api::state::AppState { browser, template_engine };
 
     let app = Router::new()
@@ -23,7 +61,13 @@ async fn main() {
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    tracing::info!("listening on {}", addr);
+    
+    tracing::info!(
+        event = "server_listening",
+        address = %addr,
+        port = %port,
+        "PDFSynth server started and listening for requests"
+    );
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
@@ -36,6 +80,7 @@ async fn shutdown_signal() {
         tokio::signal::ctrl_c()
             .await
             .expect("failed to install Ctrl+C handler");
+        tracing::info!(event = "shutdown_signal_received", signal = "SIGINT", "Received Ctrl+C, initiating graceful shutdown");
     };
 
     #[cfg(unix)]
@@ -44,6 +89,7 @@ async fn shutdown_signal() {
             .expect("failed to install signal handler")
             .recv()
             .await;
+        tracing::info!(event = "shutdown_signal_received", signal = "SIGTERM", "Received SIGTERM, initiating graceful shutdown");
     };
 
     #[cfg(not(unix))]
