@@ -1,15 +1,9 @@
 # ============================================
 # Stage 1: Build das dependências (cacheado)
 # ============================================
-FROM rust:1.83-bookworm as deps
+FROM rustlang/rust:nightly-bookworm AS deps
 
 WORKDIR /app
-
-# Instalar dependências de build necessárias
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copiar apenas arquivos de manifesto para cachear dependências
 COPY Cargo.toml Cargo.lock* ./
@@ -23,7 +17,7 @@ RUN cargo build --release && rm -rf src
 # ============================================
 # Stage 2: Build do código da aplicação
 # ============================================
-FROM deps as builder
+FROM deps AS builder
 
 # Copiar código fonte real
 COPY src ./src
