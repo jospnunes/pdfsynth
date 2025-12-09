@@ -21,3 +21,18 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1.0"
 urlencoding = "2.1.3"
 tempfile = "3.23.0"
+
+# Profile de release otimizado para builds mais rápidas
+[profile.release]
+opt-level = 3          # Otimização máxima
+lto = "thin"           # Link-time optimization leve (mais rápido que "fat")
+codegen-units = 16     # Mais unidades = compilação paralela mais rápida
+strip = true           # Remove símbolos de debug (binário menor)
+panic = "abort"        # Menor binário, sem unwinding
+
+# Profile para CI/CD ainda mais rápido (menos otimização, build mais rápido)
+[profile.release-fast]
+inherits = "release"
+opt-level = 2          # Otimização moderada
+lto = false            # Sem LTO = muito mais rápido
+codegen-units = 256    # Máximo paralelismo

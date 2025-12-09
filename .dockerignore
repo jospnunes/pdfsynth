@@ -1,0 +1,21 @@
+# Ignorar pasta target (muito grande, não precisa ir pro Docker)
+target/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Arquivos de teste
+tests/
+*.md
+
+# Outros
+Dockerfile
+.dockerignore
+*.log
