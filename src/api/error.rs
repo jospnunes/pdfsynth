@@ -20,11 +20,15 @@ pub enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, error_message, error_type) = match &self {
-            AppError::TemplateError(e) => (StatusCode::BAD_REQUEST, e.to_string(), "template_error"),
-            AppError::BrowserError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.clone(), "browser_error"),
-            AppError::GhostscriptError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.clone(), "ghostscript_error"),
-            AppError::Anyhow(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string(), "internal_error"),
+        let (status, error_message, error_type, error_details) = match &self {
+            AppError::TemplateError(e) => {
+                // Extrair detalhes mais úteis do erro Tera
+                let details = format!("{:#}", e);
+                (StatusCode::BAD_REQUEST, e.to_string(), "template_error", details)
+            },
+            AppError::BrowserError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.clone(), "browser_error", e.clone()),
+            AppError::GhostscriptError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.clone(), "ghostscript_error", e.clone()),
+            AppError::Anyhow(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string(), "internal_error", format!("{:#}", e)),
         };
 
         tracing::error!(
@@ -32,11 +36,14 @@ impl IntoResponse for AppError {
             error_type = error_type,
             status_code = status.as_u16(),
             error = %error_message,
+            error_details = %error_details,
             "API error response"
         );
 
         let body = Json(json!({
             "error": error_message,
+            "error_type": error_type,
+            "details": error_details,
         }));
 
         (status, body).into_response()

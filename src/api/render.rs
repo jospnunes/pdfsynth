@@ -25,13 +25,32 @@ pub async fn render_html(
     let start = Instant::now();
     let template_size = payload.template_html.len();
     
+    // Extrair chaves dos dados para log
+    let data_keys: Vec<&str> = payload.data.as_object()
+        .map(|obj| obj.keys().map(|k| k.as_str()).collect())
+        .unwrap_or_default();
+    
     tracing::info!(
         event = "render_html_started",
         template_size_bytes = template_size,
+        data_keys = ?data_keys,
         "Starting HTML render"
     );
 
-    let context = tera::Context::from_value(payload.data).unwrap_or_default();
+    // Criar contexto e verificar se foi criado corretamente
+    let context = match tera::Context::from_value(payload.data.clone()) {
+        Ok(ctx) => ctx,
+        Err(e) => {
+            tracing::error!(
+                event = "render_html_error",
+                stage = "context_creation",
+                error = %e,
+                data_keys = ?data_keys,
+                "Failed to create Tera context from JSON data"
+            );
+            return Err(AppError::TemplateError(tera::Error::msg(format!("Invalid context data: {}", e))));
+        }
+    };
     
     match state.template_engine.render(&payload.template_html, &context) {
         Ok(html) => {
@@ -65,15 +84,36 @@ pub async fn render_pdf(
     let template_size = payload.template_html.len();
     let pdf_a_enabled = payload.options.as_ref().map(|o| o.pdf_a).unwrap_or(false);
     
+    // Extrair chaves dos dados para log
+    let data_keys: Vec<&str> = payload.data.as_object()
+        .map(|obj| obj.keys().map(|k| k.as_str()).collect())
+        .unwrap_or_default();
+    
     tracing::info!(
         event = "render_pdf_started",
         template_size_bytes = template_size,
         pdf_a = pdf_a_enabled,
+        data_keys = ?data_keys,
         "Starting PDF render"
     );
 
+    // Criar contexto e verificar se foi criado corretamente
+    let context = match tera::Context::from_value(payload.data.clone()) {
+        Ok(ctx) => ctx,
+        Err(e) => {
+            tracing::error!(
+                event = "render_pdf_error",
+                stage = "context_creation",
+                error = %e,
+                data_keys = ?data_keys,
+                "Failed to create Tera context from JSON data"
+            );
+            return Err(AppError::TemplateError(tera::Error::msg(format!("Invalid context data: {}", e))));
+        }
+    };
+
     // Renderizar template HTML
-    let html = match state.template_engine.render(&payload.template_html, &tera::Context::from_value(payload.data).unwrap_or_default()) {
+    let html = match state.template_engine.render(&payload.template_html, &context) {
         Ok(html) => {
             tracing::debug!(
                 event = "template_rendered",
