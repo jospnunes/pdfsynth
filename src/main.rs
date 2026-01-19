@@ -1,4 +1,4 @@
-use axum::{routing::get, Router};
+use axum::{routing::get, Router, extract::DefaultBodyLimit};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -51,11 +51,25 @@ async fn main() {
 
     let state = api::state::AppState { browser, template_engine };
 
+    // Limite de 100MB para o body (imagens base64 podem ser grandes)
+    let body_limit = std::env::var("MAX_BODY_SIZE_MB")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(100) * 1024 * 1024;
+
+    tracing::info!(
+        event = "body_limit_configured",
+        max_body_size_bytes = body_limit,
+        max_body_size_mb = body_limit / 1024 / 1024,
+        "Request body size limit configured"
+    );
+
     let app = Router::new()
         .route("/health", get(api::health::health_check))
         .route("/render/debug", axum::routing::post(api::render::render_html))
         .route("/render", axum::routing::post(api::render::render_pdf))
         .with_state(state)
+        .layer(DefaultBodyLimit::max(body_limit))
         .layer(TraceLayer::new_for_http());
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
