@@ -134,24 +134,35 @@ impl BrowserManager {
 
         let wait_for_images_script = r#"
             new Promise((resolve) => {
-                const images = Array.from(document.querySelectorAll('img'));
+                const imgTags = Array.from(document.querySelectorAll('img'));
                 
-                let pending = images.length;
+                const bgImages = [];
+                document.querySelectorAll('*').forEach(el => {
+                    const bg = getComputedStyle(el).backgroundImage;
+                    if (bg && bg !== 'none') {
+                        const urlMatch = bg.match(/url\(["']?([^"')]+)["']?\)/);
+                        if (urlMatch && urlMatch[1]) {
+                            bgImages.push(urlMatch[1]);
+                        }
+                    }
+                });
+                
+                let pending = imgTags.length + bgImages.length;
                 
                 if (pending === 0) {
-                    setTimeout(() => resolve('no_images'), 500);
+                    setTimeout(() => resolve('no_images'), 300);
                     return;
                 }
                 
                 const checkComplete = () => {
                     pending--;
                     if (pending <= 0) {
-                        setTimeout(() => resolve('all_loaded'), 300);
+                        setTimeout(() => resolve('all_loaded'), 500);
                     }
                 };
                 
-                images.forEach(img => {
-                    if (img.complete) {
+                imgTags.forEach(img => {
+                    if (img.complete && img.naturalHeight !== 0) {
                         checkComplete();
                     } else {
                         img.onload = checkComplete;
@@ -159,7 +170,14 @@ impl BrowserManager {
                     }
                 });
                 
-                setTimeout(() => resolve('timeout'), 10000);
+                bgImages.forEach(url => {
+                    const img = new Image();
+                    img.onload = checkComplete;
+                    img.onerror = checkComplete;
+                    img.src = url;
+                });
+                
+                setTimeout(() => resolve('timeout'), 15000);
             })
         "#;
 
