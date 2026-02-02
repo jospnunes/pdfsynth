@@ -132,6 +132,53 @@ impl BrowserManager {
 
         tracing::debug!(event = "browser_navigation_complete", "Navigation completed");
 
+        let wait_for_images_script = r#"
+            new Promise((resolve) => {
+                const images = Array.from(document.querySelectorAll('img'));
+                
+                let pending = images.length;
+                
+                if (pending === 0) {
+                    setTimeout(() => resolve('no_images'), 500);
+                    return;
+                }
+                
+                const checkComplete = () => {
+                    pending--;
+                    if (pending <= 0) {
+                        setTimeout(() => resolve('all_loaded'), 300);
+                    }
+                };
+                
+                images.forEach(img => {
+                    if (img.complete) {
+                        checkComplete();
+                    } else {
+                        img.onload = checkComplete;
+                        img.onerror = checkComplete;
+                    }
+                });
+                
+                setTimeout(() => resolve('timeout'), 10000);
+            })
+        "#;
+
+        tracing::debug!(event = "browser_waiting_images", "Waiting for images to load");
+        
+        let wait_result = tab.evaluate(wait_for_images_script, true)
+            .map_err(|e| {
+                tracing::warn!(event = "browser_wait_images_failed", error = %e, "Failed to wait for images");
+                e
+            });
+
+        if let Ok(result) = wait_result {
+            tracing::debug!(
+                event = "browser_images_loaded",
+                result = ?result.value,
+                "Images loading completed"
+            );
+        }
+
         let pdf_data = tab.print_to_pdf(None)
             .map_err(|e| {
                 tracing::error!(event = "browser_print_failed", error = %e, "Failed to print to PDF");
