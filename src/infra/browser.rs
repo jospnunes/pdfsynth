@@ -2,8 +2,6 @@ use headless_chrome::{Browser, LaunchOptions};
 use anyhow::Result;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use std::io::Write;
-use tempfile::Builder;
 
 #[derive(Clone)]
 pub struct BrowserManager {
@@ -95,40 +93,35 @@ impl BrowserManager {
             }
         };
 
-        let mut temp_file = Builder::new()
-            .prefix("pdfsynth_")
-            .suffix(".html")
-            .tempfile()
+        tab.navigate_to("about:blank")
             .map_err(|e| {
-                tracing::error!(event = "temp_file_creation_failed", error = %e, "Failed to create temp file");
-                anyhow::anyhow!("Failed to create temp file: {}", e)
-            })?;
-
-        temp_file.write_all(html.as_bytes())
-            .map_err(|e| {
-                tracing::error!(event = "temp_file_write_failed", error = %e, "Failed to write temp file");
-                anyhow::anyhow!("Failed to write temp file: {}", e)
-            })?;
-
-        let file_url = format!("file://{}", temp_file.path().display());
-        
-        tracing::debug!(
-            event = "browser_navigating",
-            html_size_bytes = html_size,
-            temp_path = %temp_file.path().display(),
-            "Navigating to temp file"
-        );
-
-        tab.navigate_to(&file_url)
-            .map_err(|e| {
-                tracing::error!(event = "browser_navigation_failed", error = %e, "Failed to navigate");
-                anyhow::anyhow!("Failed to navigate: {}", e)
+                tracing::error!(event = "browser_navigation_failed", error = %e, "Failed to navigate to blank");
+                anyhow::anyhow!("Failed to navigate to blank: {}", e)
             })?
             .wait_until_navigated()
             .map_err(|e| {
-                tracing::error!(event = "browser_wait_failed", error = %e, "Failed to wait for navigation");
-                anyhow::anyhow!("Failed to wait for navigation: {}", e)
+                tracing::error!(event = "browser_wait_failed", error = %e, "Failed to wait for blank navigation");
+                anyhow::anyhow!("Failed to wait for blank navigation: {}", e)
             })?;
+
+        tracing::debug!(
+            event = "browser_setting_content",
+            html_size_bytes = html_size,
+            "Setting document content directly"
+        );
+
+        let set_content_script = format!(
+            r#"document.open(); document.write({}); document.close();"#,
+            serde_json::to_string(html).unwrap_or_else(|_| "''".to_string())
+        );
+
+        tab.evaluate(&set_content_script, false)
+            .map_err(|e| {
+                tracing::error!(event = "browser_set_content_failed", error = %e, "Failed to set document content");
+                anyhow::anyhow!("Failed to set document content: {}", e)
+            })?;
+
+        std::thread::sleep(std::time::Duration::from_millis(300));
 
         tracing::debug!(event = "browser_navigation_complete", "Navigation completed");
 
