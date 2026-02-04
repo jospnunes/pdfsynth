@@ -134,14 +134,17 @@ impl BrowserManager {
                 document.querySelectorAll('*').forEach(el => {
                     const bg = getComputedStyle(el).backgroundImage;
                     if (bg && bg !== 'none') {
-                        const urlMatch = bg.match(/url\(["']?([^"')]+)["']?\)/);
+                        // Match both regular URLs and data: URLs
+                        const urlMatch = bg.match(/url\(["']?(data:[^"')]+|[^"')]+)["']?\)/);
                         if (urlMatch && urlMatch[1]) {
-                            bgImages.push(urlMatch[1]);
+                            bgImages.push({ url: urlMatch[1], element: el });
                         }
                     }
                 });
                 
                 let pending = imgTags.length + bgImages.length;
+                
+                console.log('Images to load:', { imgTags: imgTags.length, bgImages: bgImages.length });
                 
                 if (pending === 0) {
                     setTimeout(() => resolve('no_images'), 300);
@@ -151,7 +154,8 @@ impl BrowserManager {
                 const checkComplete = () => {
                     pending--;
                     if (pending <= 0) {
-                        setTimeout(() => resolve('all_loaded'), 500);
+                        // Wait longer for backgrounds to render after loading
+                        setTimeout(() => resolve('all_loaded'), 1000);
                     }
                 };
                 
@@ -164,11 +168,20 @@ impl BrowserManager {
                     }
                 });
                 
-                bgImages.forEach(url => {
-                    const img = new Image();
-                    img.onload = checkComplete;
-                    img.onerror = checkComplete;
-                    img.src = url;
+                bgImages.forEach(({ url }) => {
+                    // For data: URLs, they're already loaded inline
+                    if (url.startsWith('data:')) {
+                        // Still create an Image to ensure it's decoded
+                        const img = new Image();
+                        img.onload = checkComplete;
+                        img.onerror = checkComplete;
+                        img.src = url;
+                    } else {
+                        const img = new Image();
+                        img.onload = checkComplete;
+                        img.onerror = checkComplete;
+                        img.src = url;
+                    }
                 });
                 
                 setTimeout(() => resolve('timeout'), 15000);
@@ -194,6 +207,10 @@ impl BrowserManager {
         let pdf_data = tab.print_to_pdf(Some(PrintToPdfOptions {
             print_background: Some(true),
             prefer_css_page_size: Some(true),
+            landscape: Some(true),
+            paper_width: Some(11.69),   // A4 width in inches (297mm)
+            paper_height: Some(8.27),   // A4 height in inches (210mm)
+            scale: Some(1.0),
             margin_top: Some(0.0),
             margin_bottom: Some(0.0),
             margin_left: Some(0.0),
