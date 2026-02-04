@@ -1,4 +1,5 @@
 use headless_chrome::{Browser, LaunchOptions};
+use headless_chrome::types::PrintToPdfOptions;
 use anyhow::Result;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
@@ -190,7 +191,15 @@ impl BrowserManager {
             );
         }
 
-        let pdf_data = tab.print_to_pdf(None)
+        let pdf_data = tab.print_to_pdf(Some(PrintToPdfOptions {
+            print_background: Some(true),
+            prefer_css_page_size: Some(true),
+            margin_top: Some(0.0),
+            margin_bottom: Some(0.0),
+            margin_left: Some(0.0),
+            margin_right: Some(0.0),
+            ..Default::default()
+        }))
             .map_err(|e| {
                 tracing::error!(event = "browser_print_failed", error = %e, "Failed to print to PDF");
                 anyhow::anyhow!("Failed to print to PDF: {}", e)
