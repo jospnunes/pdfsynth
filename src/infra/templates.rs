@@ -36,7 +36,7 @@ impl TemplateEngine {
             "Template content preview"
         );
 
-        match Tera::one_off(template_str, context, true) {
+        match Tera::one_off(template_str, context, false) {
             Ok(result) => {
                 let duration = start.elapsed();
                 tracing::info!(

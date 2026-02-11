@@ -1,5 +1,6 @@
 use headless_chrome::{Browser, LaunchOptions};
 use headless_chrome::types::PrintToPdfOptions;
+use headless_chrome::protocol::cdp::Page;
 use anyhow::Result;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
@@ -30,8 +31,19 @@ impl BrowserManager {
 
     fn create_browser() -> Result<Browser> {
         tracing::debug!(event = "browser_launching", "Launching headless Chrome browser");
-        
-        let options = LaunchOptions::default_builder()
+
+        // Use system Chromium if available (newer than bundled version)
+        let chrome_path = ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"]
+            .iter()
+            .find(|p| std::path::Path::new(p).exists())
+            .map(|p| std::path::PathBuf::from(*p));
+
+        if let Some(ref path) = chrome_path {
+            tracing::info!(event = "browser_using_system_chrome", path = %path.display(), "Using system Chrome binary");
+        }
+
+        let mut builder = LaunchOptions::default_builder();
+        builder
             .args(vec![
                 std::ffi::OsStr::new("--no-sandbox"),
                 std::ffi::OsStr::new("--disable-gpu"),
@@ -39,7 +51,13 @@ impl BrowserManager {
                 std::ffi::OsStr::new("--disable-software-rasterizer"),
                 std::ffi::OsStr::new("--disable-extensions"),
                 std::ffi::OsStr::new("--allow-file-access-from-files"),
-            ])
+            ]);
+
+        if let Some(path) = chrome_path {
+            builder.path(Some(path));
+        }
+
+        let options = builder
             .build()
             .map_err(|e| anyhow::anyhow!("Failed to build launch options: {}", e))?;
 
@@ -94,37 +112,32 @@ impl BrowserManager {
             }
         };
 
-        tab.navigate_to("about:blank")
-            .map_err(|e| {
-                tracing::error!(event = "browser_navigation_failed", error = %e, "Failed to navigate to blank");
-                anyhow::anyhow!("Failed to navigate to blank: {}", e)
-            })?
-            .wait_until_navigated()
-            .map_err(|e| {
-                tracing::error!(event = "browser_wait_failed", error = %e, "Failed to wait for blank navigation");
-                anyhow::anyhow!("Failed to wait for blank navigation: {}", e)
-            })?;
-
         tracing::debug!(
             event = "browser_setting_content",
             html_size_bytes = html_size,
-            "Setting document content directly"
+            "Setting document content via CDP"
         );
 
-        let set_content_script = format!(
-            r#"document.open(); document.write({}); document.close();"#,
-            serde_json::to_string(html).unwrap_or_else(|_| "''".to_string())
-        );
+        tab.navigate_to("about:blank")
+            .map_err(|e| anyhow::anyhow!("Failed to navigate to blank: {}", e))?
+            .wait_until_navigated()
+            .map_err(|e| anyhow::anyhow!("Failed to wait for blank navigation: {}", e))?;
 
-        tab.evaluate(&set_content_script, false)
-            .map_err(|e| {
-                tracing::error!(event = "browser_set_content_failed", error = %e, "Failed to set document content");
-                anyhow::anyhow!("Failed to set document content: {}", e)
-            })?;
+        // Get the main frame ID for SetDocumentContent
+        let frame_tree = tab.call_method(Page::GetFrameTree(None))
+            .map_err(|e| anyhow::anyhow!("Failed to get frame tree: {}", e))?;
+        let frame_id = frame_tree.frame_tree.frame.id;
+
+        // Inject HTML directly via CDP (handles large HTML with data URIs)
+        tab.call_method(Page::SetDocumentContent {
+            frame_id,
+            html: html.to_string(),
+        })
+        .map_err(|e| anyhow::anyhow!("Failed to set document content: {}", e))?;
 
         std::thread::sleep(std::time::Duration::from_millis(300));
 
-        tracing::debug!(event = "browser_navigation_complete", "Navigation completed");
+        tracing::debug!(event = "browser_content_set", "Document content set successfully");
 
         let wait_for_images_script = r#"
             new Promise((resolve) => {
