@@ -32,7 +32,6 @@ impl BrowserManager {
     fn create_browser() -> Result<Browser> {
         tracing::debug!(event = "browser_launching", "Launching headless Chrome browser");
 
-        // Use system Chromium if available (newer than bundled version)
         let chrome_path = ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"]
             .iter()
             .find(|p| std::path::Path::new(p).exists())
@@ -123,12 +122,10 @@ impl BrowserManager {
             .wait_until_navigated()
             .map_err(|e| anyhow::anyhow!("Failed to wait for blank navigation: {}", e))?;
 
-        // Get the main frame ID for SetDocumentContent
         let frame_tree = tab.call_method(Page::GetFrameTree(None))
             .map_err(|e| anyhow::anyhow!("Failed to get frame tree: {}", e))?;
         let frame_id = frame_tree.frame_tree.frame.id;
 
-        // Inject HTML directly via CDP (handles large HTML with data URIs)
         tab.call_method(Page::SetDocumentContent {
             frame_id,
             html: html.to_string(),
@@ -147,7 +144,6 @@ impl BrowserManager {
                 document.querySelectorAll('*').forEach(el => {
                     const bg = getComputedStyle(el).backgroundImage;
                     if (bg && bg !== 'none') {
-                        // Match both regular URLs and data: URLs
                         const urlMatch = bg.match(/url\(["']?(data:[^"')]+|[^"')]+)["']?\)/);
                         if (urlMatch && urlMatch[1]) {
                             bgImages.push({ url: urlMatch[1], element: el });
@@ -167,7 +163,6 @@ impl BrowserManager {
                 const checkComplete = () => {
                     pending--;
                     if (pending <= 0) {
-                        // Wait longer for backgrounds to render after loading
                         setTimeout(() => resolve('all_loaded'), 1000);
                     }
                 };
@@ -182,9 +177,7 @@ impl BrowserManager {
                 });
                 
                 bgImages.forEach(({ url }) => {
-                    // For data: URLs, they're already loaded inline
                     if (url.startsWith('data:')) {
-                        // Still create an Image to ensure it's decoded
                         const img = new Image();
                         img.onload = checkComplete;
                         img.onerror = checkComplete;

@@ -8,10 +8,8 @@ mod infra;
 
 #[tokio::main]
 async fn main() {
-    // Configurar tracing com filtro por nível via RUST_LOG
     tracing_subscriber::registry()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-            // Default: info para pdfsynth, warn para outras crates
             "pdfsynth=info,tower_http=debug,warn".into()
         }))
         .with(tracing_subscriber::fmt::layer()
@@ -51,7 +49,6 @@ async fn main() {
 
     let state = api::state::AppState { browser, template_engine };
 
-    // Limite de 100MB para o body (imagens base64 podem ser grandes)
     let body_limit = std::env::var("MAX_BODY_SIZE_MB")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())

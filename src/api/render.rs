@@ -25,7 +25,6 @@ pub async fn render_html(
     let start = Instant::now();
     let template_size = payload.template_html.len();
     
-    // Extrair chaves dos dados para log
     let data_keys: Vec<&str> = payload.data.as_object()
         .map(|obj| obj.keys().map(|k| k.as_str()).collect())
         .unwrap_or_default();
@@ -37,7 +36,6 @@ pub async fn render_html(
         "Starting HTML render"
     );
 
-    // Criar contexto e verificar se foi criado corretamente
     let context = match tera::Context::from_value(payload.data.clone()) {
         Ok(ctx) => ctx,
         Err(e) => {
@@ -84,7 +82,6 @@ pub async fn render_pdf(
     let template_size = payload.template_html.len();
     let pdf_a_enabled = payload.options.as_ref().map(|o| o.pdf_a).unwrap_or(false);
     
-    // Extrair chaves dos dados para log
     let data_keys: Vec<&str> = payload.data.as_object()
         .map(|obj| obj.keys().map(|k| k.as_str()).collect())
         .unwrap_or_default();
@@ -97,7 +94,7 @@ pub async fn render_pdf(
         "Starting PDF render"
     );
 
-    // Criar contexto e verificar se foi criado corretamente
+
     let context = match tera::Context::from_value(payload.data.clone()) {
         Ok(ctx) => ctx,
         Err(e) => {
@@ -112,7 +109,6 @@ pub async fn render_pdf(
         }
     };
 
-    // Renderizar template HTML
     let html = match state.template_engine.render(&payload.template_html, &context) {
         Ok(html) => {
             tracing::debug!(
@@ -135,7 +131,6 @@ pub async fn render_pdf(
         }
     };
 
-    // Gerar PDF via browser
     let pdf_bytes = match state.browser.print_to_pdf(&html) {
         Ok(bytes) => {
             tracing::debug!(
@@ -158,7 +153,6 @@ pub async fn render_pdf(
         }
     };
 
-    // Converter para PDF/A se necessário
     let final_pdf = if let Some(opts) = payload.options {
         if opts.pdf_a {
             match crate::infra::ghostscript::Ghostscript::convert_to_pdfa(&pdf_bytes) {

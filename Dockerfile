@@ -1,36 +1,21 @@
-# ============================================
-# Stage 1: Build das dependências (cacheado)
-# ============================================
 FROM rustlang/rust:nightly-bookworm AS deps
 
 WORKDIR /app
 
-# Copiar apenas arquivos de manifesto para cachear dependências
 COPY Cargo.toml Cargo.lock* ./
 
-# Criar src dummy para compilar dependências
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
-# Compilar apenas dependências (será cacheado se Cargo.toml não mudar)
 RUN cargo build --release && rm -rf src target/release/pdfsynth target/release/deps/pdfsynth*
 
-# ============================================
-# Stage 2: Build do código da aplicação
-# ============================================
 FROM deps AS builder
 
-# Copiar código fonte real
 COPY src ./src
 
-# Build final (rápido pois deps já estão compiladas)
 RUN cargo build --release
 
-# ============================================
-# Stage 3: Imagem de produção mínima
-# ============================================
 FROM debian:bookworm-slim
 
-# Instalar runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ghostscript \
@@ -42,25 +27,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Criar usuário não-root
 RUN useradd -m -u 1000 -U appuser
 
 WORKDIR /app
 
-# Copiar binário compilado
 COPY --from=builder /app/target/release/pdfsynth /app/pdfsynth
 
-# Copiar assets diretamente do contexto (não do builder)
 COPY assets ./assets
 COPY fonts ./fonts
 
-# Copiar ICC profile do sistema
 RUN cp /usr/share/color/icc/sRGB.icc /app/assets/srgb.icc
 
-# Atualizar cache de fontes
 RUN fc-cache -f -v
 
-# Ajustar permissões
 RUN chown -R appuser:appuser /app
 
 USER appuser

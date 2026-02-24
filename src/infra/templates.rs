@@ -15,7 +15,6 @@ impl TemplateEngine {
         let start = Instant::now();
         let template_size = template_str.len();
         
-        // Extrair chaves do contexto para log
         let context_json = context.clone().into_json();
         let context_keys: Vec<&str> = context_json.as_object()
             .map(|obj| obj.keys().map(|k| k.as_str()).collect())
@@ -28,7 +27,6 @@ impl TemplateEngine {
             "Starting template rendering"
         );
 
-        // Log de amostra do template (primeiros 500 chars)
         let template_preview: String = template_str.chars().take(500).collect();
         tracing::debug!(
             event = "template_preview",
@@ -51,10 +49,8 @@ impl TemplateEngine {
             Err(e) => {
                 let duration = start.elapsed();
                 
-                // Extrair detalhes do erro Tera
                 let error_source = e.source().map(|s| s.to_string()).unwrap_or_default();
                 
-                // Tentar identificar a linha/variável problemática
                 let error_details = format!("{:#}", e);
                 
                 tracing::error!(
@@ -68,7 +64,6 @@ impl TemplateEngine {
                     "Template rendering failed - check if all variables in template exist in context"
                 );
                 
-                // Log adicional com o contexto completo em debug
                 tracing::debug!(
                     event = "template_render_failed_context",
                     context = %context_json,

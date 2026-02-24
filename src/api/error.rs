@@ -22,7 +22,6 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, error_message, error_type, error_details) = match &self {
             AppError::TemplateError(e) => {
-                // Extrair detalhes mais úteis do erro Tera
                 let details = format!("{:#}", e);
                 (StatusCode::BAD_REQUEST, e.to_string(), "template_error", details)
             },
