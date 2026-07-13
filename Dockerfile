@@ -1,4 +1,4 @@
-FROM rustlang/rust:nightly-bookworm AS deps
+FROM rust:1.97-bookworm AS deps
 
 WORKDIR /app
 
