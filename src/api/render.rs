@@ -131,7 +131,14 @@ pub async fn render_pdf(
         }
     };
 
-    let pdf_bytes = match state.browser.print_to_pdf(&html) {
+    // Browser rendering is fully blocking (CDP calls, thread::sleep). Running it
+    // inline would stall the async runtime and freeze all in-flight requests,
+    // so it must run on the blocking thread pool.
+    let browser = state.browser.clone();
+    let pdf_bytes = match tokio::task::spawn_blocking(move || browser.print_to_pdf(&html))
+        .await
+        .unwrap_or_else(|e| Err(anyhow::anyhow!("PDF render task failed: {}", e)))
+    {
         Ok(bytes) => {
             tracing::debug!(
                 event = "pdf_generated",
@@ -153,32 +160,36 @@ pub async fn render_pdf(
         }
     };
 
-    let final_pdf = if let Some(opts) = payload.options {
-        if opts.pdf_a {
-            match crate::infra::ghostscript::Ghostscript::convert_to_pdfa(&pdf_bytes) {
-                Ok(pdfa_bytes) => {
-                    tracing::debug!(
-                        event = "pdfa_converted",
-                        original_size_bytes = pdf_bytes.len(),
-                        pdfa_size_bytes = pdfa_bytes.len(),
-                        "PDF converted to PDF/A"
-                    );
-                    pdfa_bytes
-                }
-                Err(e) => {
-                    let duration = start.elapsed();
-                    tracing::error!(
-                        event = "render_pdf_error",
-                        stage = "pdfa_conversion",
-                        duration_ms = duration.as_millis() as u64,
-                        error = %e,
-                        "PDF render failed at PDF/A conversion stage"
-                    );
-                    return Err(AppError::GhostscriptError(e.to_string()));
-                }
+    let final_pdf = if pdf_a_enabled {
+        // Ghostscript conversion blocks on the child process; same rule as the
+        // browser stage — keep it off the async runtime.
+        let original_size_bytes = pdf_bytes.len();
+        match tokio::task::spawn_blocking(move || {
+            crate::infra::ghostscript::Ghostscript::convert_to_pdfa(&pdf_bytes)
+        })
+        .await
+        .unwrap_or_else(|e| Err(anyhow::anyhow!("PDF/A conversion task failed: {}", e)))
+        {
+            Ok(pdfa_bytes) => {
+                tracing::debug!(
+                    event = "pdfa_converted",
+                    original_size_bytes = original_size_bytes,
+                    pdfa_size_bytes = pdfa_bytes.len(),
+                    "PDF converted to PDF/A"
+                );
+                pdfa_bytes
             }
-        } else {
-            pdf_bytes
+            Err(e) => {
+                let duration = start.elapsed();
+                tracing::error!(
+                    event = "render_pdf_error",
+                    stage = "pdfa_conversion",
+                    duration_ms = duration.as_millis() as u64,
+                    error = %e,
+                    "PDF render failed at PDF/A conversion stage"
+                );
+                return Err(AppError::GhostscriptError(e.to_string()));
+            }
         }
     } else {
         pdf_bytes
