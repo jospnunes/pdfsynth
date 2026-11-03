@@ -23,7 +23,8 @@ graph LR
 - **Stateless & Scalable**: No persistent state; scales horizontally instantly.
 - **PDF/A Compliance**: Native support for ISO 19005-1 (PDF/A-1a) for long-term archiving.
 - **Dynamic Templating**: Uses Tera (Jinja2-like syntax) for powerful logic.
-- **Secure**: Runs as a non-root user with hardened browser flags.
+- **Secure**: Runs as a non-root user; opt-in `options.secure` mode renders untrusted HTML without JavaScript or network access.
+- **Logs**: template contents and data values are never logged (only sizes and key names).
 
 ## 🛠️ Usage
 
@@ -84,8 +85,9 @@ Content-Type: application/json
     "name": "João Silva"
   },
   "options": {
-    "pdf_a": true,       // Enables PDF/A conversion (slower but compliant)
-    "paper_format": "A4" // A4, Letter, Legal
+    "pdf_a": true,        // Enables PDF/A conversion (slower but compliant)
+    "paper_format": "A4", // A4, Letter, Legal
+    "secure": false       // Optional, default false. true = hardened mode (see below)
   }
 }
 ```
@@ -96,6 +98,27 @@ Content-Type: application/json
 - `400 Bad Request`: Template syntax error.
 - `500 Internal Server Error`: Rendering engine failure.
 
+#### `options.secure` (opt-in hardening for untrusted HTML)
+
+`secure` is optional and defaults to `false`: with `false` the behavior is exactly the legacy one
+(JavaScript on, external fonts/images/CSS over http(s) allowed). Nothing changes for callers that do not send it.
+
+With `"secure": true` the document is rendered in a locked-down tab:
+
+- **No JavaScript**: it is disabled in the tab (CDP `Emulation.setScriptExecutionDisabled`) before any content is loaded, so
+  `<script>`, inline handlers (`onload`, `onerror`...) and `javascript:` URLs never run.
+- **No network and no local files**: every request of the tab is intercepted (CDP `Fetch` domain) and only `data:` and `about:`
+  URLs are allowed. `http:`, `https:`, `file:`, `ws:`, `chrome:`, `blob:` etc. fail (`<img src="http://...">`,
+  `<link rel=stylesheet>`, `<iframe src="file:///...">`, `<meta http-equiv=refresh>` and so on).
+- **Resources only via `data:` URI**: CSS must be inline (`<style>` or `style=""`) and fonts/images must be embedded as `data:` URIs.
+- **Timeout**: 15 s for CDP calls and for the load event.
+- Because JavaScript is off, the "wait for images" script used by the legacy mode is replaced by waiting for the page `load` event
+  (plus a short settle time).
+
+**Template escaping:** Tera autoescape is **disabled** (for compatibility; the template is the HTML itself). Whoever calls the
+API must HTML-escape the values in `data` that come from users (`&`, `<`, `>`, `"`, `'`) before sending them, or use
+`secure: true` as a second line of defense when the template or the data may be untrusted.
+
 ### GET /health
 
 Health check endpoint for load balancers and orchestrators (K8s probes).
@@ -103,6 +126,16 @@ Health check endpoint for load balancers and orchestrators (K8s probes).
 ```json
 {"status": "ok"}
 ```
+
+## 🧪 Tests
+
+```bash
+cargo test -- --nocapture
+```
+
+The browser tests (script not executed, `http://` image not requested, `file://` iframe not loaded, normal HTML still
+renders, and legacy mode unchanged) need a Chromium at `/usr/bin/chromium` (or `chromium-browser`/`google-chrome`)
+and `pdftotext` (poppler-utils). When either is missing they print `SKIPPED` and pass without running.
 
 ## ⚙️ Configuration
 

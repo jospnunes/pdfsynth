@@ -1,5 +1,9 @@
 FROM rust:1.97-bookworm AS deps
 
+# Optional: limit parallel rustc jobs (build-arg CARGO_BUILD_JOBS=2). Unset = cargo default.
+ARG CARGO_BUILD_JOBS
+ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
+
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock* ./

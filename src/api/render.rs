@@ -9,6 +9,10 @@ use crate::api::error::AppError;
 pub struct RenderOptions {
     pub pdf_a: bool,
     pub paper_format: String,
+    /// Opt-in hardening for untrusted HTML: JavaScript off and only `data:`/`about:`
+    /// requests allowed. Default `false` keeps the legacy behavior.
+    #[serde(default)]
+    pub secure: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -81,6 +85,7 @@ pub async fn render_pdf(
     let start = Instant::now();
     let template_size = payload.template_html.len();
     let pdf_a_enabled = payload.options.as_ref().map(|o| o.pdf_a).unwrap_or(false);
+    let secure = payload.options.as_ref().map(|o| o.secure).unwrap_or(false);
     
     let data_keys: Vec<&str> = payload.data.as_object()
         .map(|obj| obj.keys().map(|k| k.as_str()).collect())
@@ -90,6 +95,7 @@ pub async fn render_pdf(
         event = "render_pdf_started",
         template_size_bytes = template_size,
         pdf_a = pdf_a_enabled,
+        secure = secure,
         data_keys = ?data_keys,
         "Starting PDF render"
     );
@@ -135,7 +141,7 @@ pub async fn render_pdf(
     // inline would stall the async runtime and freeze all in-flight requests,
     // so it must run on the blocking thread pool.
     let browser = state.browser.clone();
-    let pdf_bytes = match tokio::task::spawn_blocking(move || browser.print_to_pdf(&html))
+    let pdf_bytes = match tokio::task::spawn_blocking(move || browser.print_to_pdf(&html, secure))
         .await
         .unwrap_or_else(|e| Err(anyhow::anyhow!("PDF render task failed: {}", e)))
     {

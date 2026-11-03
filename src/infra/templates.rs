@@ -27,13 +27,6 @@ impl TemplateEngine {
             "Starting template rendering"
         );
 
-        let template_preview: String = template_str.chars().take(500).collect();
-        tracing::debug!(
-            event = "template_preview",
-            preview = %template_preview,
-            "Template content preview"
-        );
-
         match Tera::one_off(template_str, context, false) {
             Ok(result) => {
                 let duration = start.elapsed();
@@ -62,12 +55,6 @@ impl TemplateEngine {
                     context_keys = ?context_keys,
                     template_size_bytes = template_size,
                     "Template rendering failed - check if all variables in template exist in context"
-                );
-                
-                tracing::debug!(
-                    event = "template_render_failed_context",
-                    context = %context_json,
-                    "Full context data for failed render"
                 );
                 
                 Err(e)
