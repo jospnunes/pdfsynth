@@ -165,3 +165,9 @@ Since PDFSynth is packaged as a standard Docker container, it can be deployed to
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 Copyright © 2025 [Synth Solutions](https://www.synthsolutions.com.br/).
+
+## Known limit of `options.secure`
+
+Secure mode blocks scripts, frames, objects and requests, but CSP does not cover `<link rel="preconnect">`, which can open a
+TCP connection without sending data. Strip `<link>` from untrusted HTML before calling `/render`, and run the service with
+an identity that has no permissions.

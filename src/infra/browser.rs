@@ -33,7 +33,9 @@ fn is_allowed_request(url: &str, is_document: bool) -> bool {
 
 /// Prepended to untrusted HTML in secure mode. The CSP is enforced by Blink itself (frames, scripts,
 /// objects and any connection blocked; images, styles and fonts only from `data:`) and DNS prefetch is
-/// turned off, so the document cannot reach the network even through paths the interceptor does not see.
+/// turned off. Known limit: CSP does not cover `<link rel="preconnect">`, which can open a TCP connection
+/// without sending data. Callers must still strip `<link>` from untrusted HTML; closing this for good needs
+/// a separate browser for secure mode with egress blocked below Blink (e.g. `--host-resolver-rules`).
 const SECURE_HEAD: &str = concat!(
     r#"<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; "#,
     r#"style-src 'unsafe-inline' data:; font-src data:; script-src 'none'; object-src 'none'; "#,
