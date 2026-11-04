@@ -21,6 +21,40 @@ fn is_allowed_url(url: &str) -> bool {
     lower.starts_with("data:") || lower.starts_with("about:")
 }
 
+/// A `data:` URL may carry a whole HTML document (navigation or iframe). Such a frame can end up in
+/// another renderer where the tab's script/interception settings do not apply, so documents are only
+/// allowed from `about:` (the blank page that receives the content).
+fn is_allowed_request(url: &str, is_document: bool) -> bool {
+    if is_document {
+        return url.trim_start().to_ascii_lowercase().starts_with("about:");
+    }
+    is_allowed_url(url)
+}
+
+/// Prepended to untrusted HTML in secure mode. The CSP is enforced by Blink itself (frames, scripts,
+/// objects and any connection blocked; images, styles and fonts only from `data:`) and DNS prefetch is
+/// turned off, so the document cannot reach the network even through paths the interceptor does not see.
+const SECURE_HEAD: &str = concat!(
+    r#"<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; "#,
+    r#"style-src 'unsafe-inline' data:; font-src data:; script-src 'none'; object-src 'none'; "#,
+    r#"frame-src 'none'; child-src 'none'; connect-src 'none'; media-src 'none'; base-uri 'none'; form-action 'none'">"#,
+    r#"<meta http-equiv="x-dns-prefetch-control" content="off">"#,
+);
+
+fn secure_html(html: &str) -> String {
+    #[cfg(test)]
+    if SKIP_SECURE_HEAD.with(|skip| skip.get()) {
+        return html.to_string();
+    }
+    format!("{SECURE_HEAD}{html}")
+}
+
+// Lets a test exercise the request interceptor alone, since the CSP stops requests before it.
+#[cfg(test)]
+thread_local! {
+    static SKIP_SECURE_HEAD: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 #[derive(Clone)]
 pub struct BrowserManager {
     browser: Arc<RwLock<Browser>>,
@@ -287,7 +321,8 @@ impl BrowserManager {
         let interceptor: Arc<dyn RequestInterceptor + Send + Sync> = Arc::new(
             |_transport, _session_id, event: Fetch::events::RequestPausedEvent| {
                 let url = event.params.request.url.as_str();
-                if is_allowed_url(url) {
+                let is_document = matches!(event.params.resource_Type, Network::ResourceType::Document);
+                if is_allowed_request(url, is_document) {
                     RequestPausedDecision::Continue(None)
                 } else {
                     #[cfg(test)]
@@ -348,7 +383,7 @@ impl BrowserManager {
 
         tab.call_method(Page::SetDocumentContent {
             frame_id,
-            html: html.to_string(),
+            html: secure_html(html),
         })
         .map_err(|e| anyhow::anyhow!("Failed to set document content: {}", e))?;
 
@@ -491,6 +526,31 @@ mod tests {
         </body></html>"#;
 
     #[test]
+    fn secure_data_iframe_cannot_reach_the_network_or_run() {
+        if !env_ok() { return; }
+        let (port, hits) = spawn_server();
+        let html = format!(
+            r#"<html><body><p>DATAFRAMETEST</p><iframe src="data:text/html,<p>INNERDATAFRAME</p><img src='http://127.0.0.1:{port}/x.png'>"></iframe></body></html>"#
+        );
+        let pdf = manager().print_to_pdf(&html, true).unwrap();
+        std::thread::sleep(Duration::from_millis(500));
+        let text = text_of(&pdf);
+        assert!(text.contains("DATAFRAMETEST"));
+        assert!(!text.contains("INNERDATAFRAME"), "data: iframe was rendered: {text}");
+        assert_eq!(hits.load(Ordering::SeqCst), 0, "data: iframe made a network request");
+    }
+
+    #[test]
+    fn data_documents_are_blocked_but_data_resources_allowed() {
+        assert!(!is_allowed_request("data:text/html,<script>alert(1)</script>", true));
+        assert!(is_allowed_request("about:blank", true));
+        assert!(is_allowed_request("data:image/png;base64,AAAA", false));
+        assert!(!is_allowed_request("https://example.com/x.png", false));
+        assert!(!is_allowed_request("file:///etc/passwd", false));
+        assert!(secure_html("<p>x</p>").starts_with("<meta http-equiv=\"Content-Security-Policy\""));
+    }
+
+    #[test]
     fn secure_does_not_run_scripts() {
         if !env_ok() { return; }
         let text = text_of(&manager().print_to_pdf(SCRIPT_HTML, true).unwrap());
@@ -514,14 +574,20 @@ mod tests {
             r#"<html><body><p>HTTPTEST</p><img src="http://127.0.0.1:{port}/x.png">
             <link rel="stylesheet" href="http://127.0.0.1:{port}/s.css"></body></html>"#
         );
-        let blocked_before = BLOCKED_REQUESTS.load(Ordering::SeqCst);
         let pdf = manager().print_to_pdf(&html, true).unwrap();
         std::thread::sleep(Duration::from_millis(500));
         assert!(text_of(&pdf).contains("HTTPTEST"));
-        // Chrome itself refuses loopback targets from this kind of document, so a
-        // zero hit count alone proves little: the interceptor must have seen and failed both requests.
-        assert!(BLOCKED_REQUESTS.load(Ordering::SeqCst) >= blocked_before + 2, "interceptor did not fail the img/link requests");
         assert_eq!(hits.load(Ordering::SeqCst), 0, "secure mode made a network request");
+
+        // Second layer: without the CSP, the interceptor alone must see and fail both requests.
+        // Chrome refuses loopback from this kind of document, so a zero hit count alone proves little.
+        let blocked_before = BLOCKED_REQUESTS.load(Ordering::SeqCst);
+        SKIP_SECURE_HEAD.with(|skip| skip.set(true));
+        let result = manager().print_to_pdf(&html, true);
+        SKIP_SECURE_HEAD.with(|skip| skip.set(false));
+        result.unwrap();
+        assert!(BLOCKED_REQUESTS.load(Ordering::SeqCst) >= blocked_before + 2, "interceptor did not fail the img/link requests");
+        assert_eq!(hits.load(Ordering::SeqCst), 0, "interceptor let a network request through");
 
         // Meta refresh to the network must not reach it either (the page may end on an error page).
         let refresh = format!(
@@ -555,11 +621,11 @@ mod tests {
         let html = r#"<html><body><p>LEGACYNET</p>
             <img src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"></body></html>"#;
         let has_image = |pdf: &[u8]| pdf.windows(6).any(|w| w == b"/Image");
-        assert!(has_image(&manager().print_to_pdf(html, false).unwrap()), "legacy mode must load external images");
-        // Secure: the interceptor fails the request (the PDF may still hold the browser's broken-image icon).
-        let before = BLOCKED_REQUESTS.load(Ordering::SeqCst);
-        manager().print_to_pdf(html, true).unwrap();
-        assert!(BLOCKED_REQUESTS.load(Ordering::SeqCst) > before, "secure mode did not block the external image");
+        let legacy = manager().print_to_pdf(html, false).unwrap();
+        assert!(has_image(&legacy), "legacy mode must load external images");
+        // Secure: nothing is fetched, so the PDF is much smaller (it may still hold the broken-image icon).
+        let secure = manager().print_to_pdf(html, true).unwrap();
+        assert!(secure.len() < legacy.len(), "secure mode embedded the external image: {} vs {}", secure.len(), legacy.len());
     }
 
     #[test]
